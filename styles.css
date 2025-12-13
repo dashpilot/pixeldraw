@@ -120,7 +120,7 @@ main {
 
 .palette-section {
     flex: 0 0 auto;
-    min-width: 200px;
+    min-width: 100px;
 }
 
 .palette-section h2 {
@@ -166,8 +166,8 @@ main {
 
 .palette {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 4px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px 0px;
     margin-bottom: 16px;
 }
 
@@ -267,19 +267,19 @@ main {
     header {
         padding: 20px;
     }
-    
+
     main {
         padding: 20px;
     }
-    
+
     .editor-wrapper {
         flex-direction: column;
     }
-    
+
     .palette-section {
         width: 100%;
     }
-    
+
     .pixel {
         width: 12px;
         height: 12px;
