@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Pixel Art Editor</title>
+		<link rel="stylesheet" href="styles.css" />
+	</head>
+	<body>
+		<div class="container">
+			<header>
+				<h1>Pixel Art Editor</h1>
+				<div class="controls">
+					<div class="grid-size-control">
+						<label for="gridSize">Grid Size:</label>
+						<input type="range" id="gridSize" min="8" max="64" value="32" step="8" />
+						<span id="gridSizeValue">32</span>
+					</div>
+					<button id="clearBtn" class="btn">Clear</button>
+					<button id="exportBtn" class="btn">Export PNG</button>
+				</div>
+			</header>
+			<main>
+				<div class="editor-wrapper">
+					<div class="palette-section">
+						<h2>Tools</h2>
+						<div class="tool-selector">
+							<button id="brushTool" class="tool-btn active">Brush</button>
+							<button id="bucketTool" class="tool-btn">Paint Bucket</button>
+						</div>
+						<h2>Color Palette</h2>
+						<div id="colorPalette" class="palette"></div>
+						<div class="selected-color-display">
+							<span>Selected:</span>
+							<div id="selectedColor" class="color-preview"></div>
+						</div>
+					</div>
+					<div class="canvas-section">
+						<div id="pixelGrid" class="pixel-grid" tabindex="0"></div>
+						<div class="keyboard-hint">
+							<p>Arrow keys: navigate | Shift+Arrow: draw | Space: paint | Cmd/Ctrl+Z: undo</p>
+						</div>
+					</div>
+				</div>
+			</main>
+		</div>
+		<script src="script.js"></script>
+	</body>
+</html>
