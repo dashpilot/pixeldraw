@@ -51,6 +51,10 @@
 							<p>Arrow keys: navigate | Space: paint | Cmd/Ctrl+Z: undo</p>
 						</div>
 					</div>
+					<div class="preview-section">
+						<h2>Preview</h2>
+						<canvas id="previewCanvas" class="preview-canvas"></canvas>
+					</div>
 				</div>
 			</main>
 		</div>
@@ -96,16 +100,16 @@
 				<div class="modal-body">
 					<div class="vectorize-options">
 						<label>
-							<input type="checkbox" id="smoothPaths" checked />
+							<input type="checkbox" id="smoothPaths" />
 							Smooth paths
 						</label>
 						<label>
-							<input type="checkbox" id="simplifyPaths" checked />
+							<input type="checkbox" id="simplifyPaths" />
 							Simplify paths
 						</label>
 						<div class="distance-control">
-							<label for="maxDistance">Max distance: <span id="maxDistanceValue">15</span></label>
-							<input type="range" id="maxDistance" min="5" max="50" value="15" step="5" />
+							<label for="maxDistance">Max distance: <span id="maxDistanceValue">45</span></label>
+							<input type="range" id="maxDistance" min="15" max="150" value="45" step="15" />
 						</div>
 						<button id="regenerateVector" class="btn">Regenerate</button>
 					</div>

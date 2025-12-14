@@ -15,6 +15,7 @@ const moveUpBtn = document.getElementById('moveUpBtn');
 const moveDownBtn = document.getElementById('moveDownBtn');
 const moveLeftBtn = document.getElementById('moveLeftBtn');
 const moveRightBtn = document.getElementById('moveRightBtn');
+const previewCanvas = document.getElementById('previewCanvas');
 
 // Modal elements
 const saveModal = document.getElementById('saveModal');
@@ -173,6 +174,7 @@ function paintPixel(index, color, isClick = false, isStartOfAction = false) {
 	} else {
 		pixel.style.backgroundColor = color;
 	}
+	updatePreview();
 }
 
 // Normalize color for comparison (handles rgb, hex, etc.)
@@ -230,6 +232,7 @@ function undo() {
 
 	const previousState = undoHistory.pop();
 	restoreState(previousState);
+	updatePreview();
 }
 
 // Flood fill algorithm (paint bucket)
@@ -292,6 +295,7 @@ function floodFill(startIndex, fillColor) {
 			stack.push(index + 1);
 		}
 	}
+	updatePreview();
 }
 
 // Create pixel grid
@@ -364,6 +368,36 @@ function createGrid(size) {
 	currentPixelIndex = 0;
 	updateCurrentPixel();
 	updateToolCursor();
+	updatePreview();
+}
+
+// Update preview canvas
+function updatePreview() {
+	const ctx = previewCanvas.getContext('2d');
+	const canvasSize = 200;
+	const pixelSize = canvasSize / gridSize;
+
+	// Set canvas dimensions
+	previewCanvas.width = canvasSize;
+	previewCanvas.height = canvasSize;
+
+	// Clear canvas
+	ctx.fillStyle = '#ffffff';
+	ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+	// Draw each pixel
+	pixels.forEach((pixel, index) => {
+		const row = Math.floor(index / gridSize);
+		const col = index % gridSize;
+		const x = col * pixelSize;
+		const y = row * pixelSize;
+
+		const color = pixel.style.backgroundColor || '#ffffff';
+		const normalizedColor = normalizeColor(color);
+
+		ctx.fillStyle = normalizedColor;
+		ctx.fillRect(x, y, pixelSize, pixelSize);
+	});
 }
 
 // Grid size slider
@@ -542,6 +576,7 @@ clearBtn.addEventListener('click', () => {
 	});
 	currentPixelIndex = 0;
 	updateCurrentPixel();
+	updatePreview();
 });
 
 // Move all pixels in a direction
@@ -587,6 +622,7 @@ function movePixels(direction) {
 			}
 		}
 	}
+	updatePreview();
 }
 
 // Move buttons
@@ -723,7 +759,7 @@ function tracePath(grid, targetColor, startRow, startCol, visited) {
 }
 
 // Order points to form continuous paths, breaking into segments when points are far apart
-function orderPathPoints(points, maxDistance = 15.0) {
+function orderPathPoints(points, maxDistance = 45.0) {
 	if (points.length <= 1) return [points];
 
 	const segments = [];
@@ -888,7 +924,7 @@ function segmentToSmoothPath(processedPoints, smooth, closePathOption) {
 }
 
 // Convert points to smooth SVG path (handles multiple segments)
-function pointsToSmoothPath(points, smooth = true, simplify = true, maxDistance = 15.0) {
+function pointsToSmoothPath(points, smooth = true, simplify = true, maxDistance = 45.0) {
 	if (points.length === 0) return '';
 
 	// Order points to create continuous path segments
@@ -910,11 +946,11 @@ function pointsToSmoothPath(points, smooth = true, simplify = true, maxDistance 
 }
 
 // Generate vectorized SVG
-function generateVectorizedSVG(smoothPaths = true, simplifyPaths = true, maxDistance = 15.0) {
+function generateVectorizedSVG(smoothPaths = true, simplifyPaths = true, maxDistance = 45.0) {
 	const grid = createPixelColorGrid();
 	const colors = getUniqueColors(grid);
 	const size = gridSize;
-	const pixelSize = 10;
+	const pixelSize = 30;
 	const svgSize = size * pixelSize;
 
 	let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">\n`;
@@ -1093,6 +1129,7 @@ function loadCanvasData(data) {
 	// Reset undo history and save initial state
 	undoHistory = [];
 	saveState();
+	updatePreview();
 }
 
 // Open save modal

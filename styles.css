@@ -245,6 +245,30 @@ main {
     gap: 16px;
 }
 
+.preview-section {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.preview-section h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #000000;
+}
+
+.preview-canvas {
+    width: 200px;
+    height: 200px;
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
 .pixel-grid {
     display: inline-grid;
     gap: 1px;
@@ -316,7 +340,7 @@ main {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     width: 90%;
     max-width: 500px;
-    max-height: 80vh;
+    max-height: 90vh;
     overflow: hidden;
     animation: slideIn 0.2s;
 }
@@ -373,7 +397,7 @@ main {
 .modal-body {
     padding: 24px;
     overflow-y: auto;
-    max-height: calc(80vh - 80px);
+    max-height: calc(90vh - 80px);
 }
 
 .modal-body label {
@@ -559,7 +583,7 @@ main {
 
 .vector-preview {
     width: 100%;
-    min-height: 400px;
+    min-height: 500px;
     background: #ffffff;
     border: 1px solid #e5e5e5;
     border-radius: 6px;
