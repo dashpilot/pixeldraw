@@ -63,7 +63,6 @@ const pixelArtPalette = [
 	// Row 5: Blue/Purple group
 	'#42A5F5', // Medium blue
 	'#7E57C2', // Lavender/purple
-	'#BA68C8', // Light magenta/pink-purple
 
 	// Row 6: Red/Pink group
 	'#E91E63', // Pink/red
@@ -659,8 +658,8 @@ function createPixelColorGrid() {
 // Get unique colors from the grid (excluding white)
 function getUniqueColors(grid) {
 	const colors = new Set();
-	grid.forEach(row => {
-		row.forEach(color => {
+	grid.forEach((row) => {
+		row.forEach((color) => {
 			if (color !== '#FFFFFF') {
 				colors.add(color);
 			}
@@ -672,7 +671,9 @@ function getUniqueColors(grid) {
 // Find all colored pixels and group them into connected paths
 function findColoredPixelPaths(grid, targetColor) {
 	const size = grid.length;
-	const visited = Array(size).fill(null).map(() => Array(size).fill(false));
+	const visited = Array(size)
+		.fill(null)
+		.map(() => Array(size).fill(false));
 	const paths = [];
 
 	// Get all pixels with the target color
@@ -705,21 +706,27 @@ function tracePath(grid, targetColor, startRow, startCol, visited) {
 
 	// Check if pixel is valid and has target color
 	function isValidPixel(row, col) {
-		return row >= 0 && row < size && col >= 0 && col < size &&
-		       grid[row][col] === targetColor && !visited[row][col];
+		return (
+			row >= 0 &&
+			row < size &&
+			col >= 0 &&
+			col < size &&
+			grid[row][col] === targetColor &&
+			!visited[row][col]
+		);
 	}
 
 	// Get all adjacent pixels (8-directional)
 	function getNeighbors(row, col) {
 		return [
-			{ row: row - 1, col: col },     // up
-			{ row: row + 1, col: col },     // down
-			{ row: row, col: col - 1 },     // left
-			{ row: row, col: col + 1 },     // right
+			{ row: row - 1, col: col }, // up
+			{ row: row + 1, col: col }, // down
+			{ row: row, col: col - 1 }, // left
+			{ row: row, col: col + 1 }, // right
 			{ row: row - 1, col: col - 1 }, // up-left
 			{ row: row - 1, col: col + 1 }, // up-right
 			{ row: row + 1, col: col - 1 }, // down-left
-			{ row: row + 1, col: col + 1 }  // down-right
+			{ row: row + 1, col: col + 1 } // down-right
 		];
 	}
 
@@ -847,7 +854,9 @@ function perpendicularDistance(point, lineStart, lineEnd) {
 		return Math.sqrt(px * px + py * py);
 	}
 
-	const dist = Math.abs(dy * point.x - dx * point.y + lineEnd.x * lineStart.y - lineEnd.y * lineStart.x) / norm;
+	const dist =
+		Math.abs(dy * point.x - dx * point.y + lineEnd.x * lineStart.y - lineEnd.y * lineStart.x) /
+		norm;
 	return dist;
 }
 
@@ -933,7 +942,7 @@ function pointsToSmoothPath(points, smooth = true, simplify = true, maxDistance 
 	let allPaths = '';
 
 	// Process each segment
-	segments.forEach(segment => {
+	segments.forEach((segment) => {
 		const processedPoints = simplify ? simplifyPath(segment, 1.5) : segment;
 		// Always enable auto-closing for paths where start and end are close
 		const pathData = segmentToSmoothPath(processedPoints, smooth, true);
@@ -956,13 +965,13 @@ function generateVectorizedSVG(smoothPaths = true, simplifyPaths = true, maxDist
 	let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">\n`;
 
 	// Process each color
-	colors.forEach(color => {
+	colors.forEach((color) => {
 		const paths = findColoredPixelPaths(grid, color);
 
-		paths.forEach(path => {
+		paths.forEach((path) => {
 			if (path.length > 0) {
 				// Scale points
-				const scaledPoints = path.map(p => ({
+				const scaledPoints = path.map((p) => ({
 					x: p.x * pixelSize,
 					y: p.y * pixelSize
 				}));
