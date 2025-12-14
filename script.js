@@ -5,6 +5,8 @@ const gridSizeSlider = document.getElementById('gridSize');
 const gridSizeValue = document.getElementById('gridSizeValue');
 const clearBtn = document.getElementById('clearBtn');
 const exportBtn = document.getElementById('exportBtn');
+const exportSvgBtn = document.getElementById('exportSvgBtn');
+const vectorizeBtn = document.getElementById('vectorizeBtn');
 const brushTool = document.getElementById('brushTool');
 const bucketTool = document.getElementById('bucketTool');
 const saveBtn = document.getElementById('saveBtn');
@@ -13,12 +15,22 @@ const loadBtn = document.getElementById('loadBtn');
 // Modal elements
 const saveModal = document.getElementById('saveModal');
 const loadModal = document.getElementById('loadModal');
+const vectorizeModal = document.getElementById('vectorizeModal');
 const closeSaveModal = document.getElementById('closeSaveModal');
 const closeLoadModal = document.getElementById('closeLoadModal');
+const closeVectorizeModal = document.getElementById('closeVectorizeModal');
+const closeVectorizeBtn = document.getElementById('closeVectorizeBtn');
 const artworkNameInput = document.getElementById('artworkName');
 const confirmSaveBtn = document.getElementById('confirmSaveBtn');
 const cancelSaveBtn = document.getElementById('cancelSaveBtn');
 const savedArtworksList = document.getElementById('savedArtworksList');
+const vectorPreview = document.getElementById('vectorPreview');
+const smoothPathsCheckbox = document.getElementById('smoothPaths');
+const simplifyPathsCheckbox = document.getElementById('simplifyPaths');
+const maxDistanceSlider = document.getElementById('maxDistance');
+const maxDistanceValue = document.getElementById('maxDistanceValue');
+const regenerateVectorBtn = document.getElementById('regenerateVector');
+const downloadVectorBtn = document.getElementById('downloadVectorBtn');
 
 // Color palette organized in groups of 3 analogous colors
 const pixelArtPalette = [
@@ -479,6 +491,45 @@ function exportToPNG() {
 	});
 }
 
+// Export to SVG
+function exportToSVG() {
+	const size = gridSize;
+	const pixelSize = 10; // Each pixel will be 10x10 units in the SVG
+	const svgSize = size * pixelSize;
+
+	// Create SVG header
+	let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" shape-rendering="crispEdges">\n`;
+
+	// Add each colored pixel as a rect
+	pixels.forEach((pixel, index) => {
+		const row = Math.floor(index / size);
+		const col = index % size;
+		const x = col * pixelSize;
+		const y = row * pixelSize;
+
+		const bgColor = pixel.style.backgroundColor || '#ffffff';
+		const normalizedColor = normalizeColor(bgColor);
+
+		// Skip white pixels (leave them transparent)
+		if (normalizedColor !== '#FFFFFF') {
+			svg += `  <rect x="${x}" y="${y}" width="${pixelSize}" height="${pixelSize}" fill="${normalizedColor}"/>\n`;
+		}
+	});
+
+	svg += '</svg>';
+
+	// Create blob and download
+	const blob = new Blob([svg], { type: 'image/svg+xml' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = `pixel-art-${Date.now()}.svg`;
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	URL.revokeObjectURL(url);
+}
+
 // Clear canvas
 clearBtn.addEventListener('click', () => {
 	saveState();
@@ -489,8 +540,404 @@ clearBtn.addEventListener('click', () => {
 	updateCurrentPixel();
 });
 
-// Export button
+// Export buttons
 exportBtn.addEventListener('click', exportToPNG);
+exportSvgBtn.addEventListener('click', exportToSVG);
+
+// ============== VECTORIZATION FUNCTIONALITY ==============
+
+let currentVectorizedSVG = '';
+
+// Create a 2D grid representing pixel colors
+function createPixelColorGrid() {
+	const size = gridSize;
+	const grid = [];
+
+	for (let row = 0; row < size; row++) {
+		grid[row] = [];
+		for (let col = 0; col < size; col++) {
+			const index = row * size + col;
+			const color = normalizeColor(getPixelColor(index));
+			grid[row][col] = color;
+		}
+	}
+
+	return grid;
+}
+
+// Get unique colors from the grid (excluding white)
+function getUniqueColors(grid) {
+	const colors = new Set();
+	grid.forEach(row => {
+		row.forEach(color => {
+			if (color !== '#FFFFFF') {
+				colors.add(color);
+			}
+		});
+	});
+	return Array.from(colors);
+}
+
+// Find all colored pixels and group them into connected paths
+function findColoredPixelPaths(grid, targetColor) {
+	const size = grid.length;
+	const visited = Array(size).fill(null).map(() => Array(size).fill(false));
+	const paths = [];
+
+	// Get all pixels with the target color
+	const coloredPixels = [];
+	for (let row = 0; row < size; row++) {
+		for (let col = 0; col < size; col++) {
+			if (grid[row][col] === targetColor) {
+				coloredPixels.push({ row, col });
+			}
+		}
+	}
+
+	// For each unvisited colored pixel, trace a path
+	for (const startPixel of coloredPixels) {
+		if (!visited[startPixel.row][startPixel.col]) {
+			const path = tracePath(grid, targetColor, startPixel.row, startPixel.col, visited);
+			if (path.length > 0) {
+				paths.push(path);
+			}
+		}
+	}
+
+	return paths;
+}
+
+// Trace a path from a starting pixel by following adjacent pixels of the same color
+function tracePath(grid, targetColor, startRow, startCol, visited) {
+	const size = grid.length;
+	const path = [];
+
+	// Check if pixel is valid and has target color
+	function isValidPixel(row, col) {
+		return row >= 0 && row < size && col >= 0 && col < size &&
+		       grid[row][col] === targetColor && !visited[row][col];
+	}
+
+	// Get all adjacent pixels (8-directional)
+	function getNeighbors(row, col) {
+		return [
+			{ row: row - 1, col: col },     // up
+			{ row: row + 1, col: col },     // down
+			{ row: row, col: col - 1 },     // left
+			{ row: row, col: col + 1 },     // right
+			{ row: row - 1, col: col - 1 }, // up-left
+			{ row: row - 1, col: col + 1 }, // up-right
+			{ row: row + 1, col: col - 1 }, // down-left
+			{ row: row + 1, col: col + 1 }  // down-right
+		];
+	}
+
+	// Start DFS from the starting pixel
+	const stack = [{ row: startRow, col: startCol }];
+
+	while (stack.length > 0) {
+		const current = stack.pop();
+
+		if (!isValidPixel(current.row, current.col)) {
+			continue;
+		}
+
+		visited[current.row][current.col] = true;
+		path.push({ x: current.col + 0.5, y: current.row + 0.5 }); // Center of pixel
+
+		// Add all valid neighbors to stack
+		const neighbors = getNeighbors(current.row, current.col);
+		for (const neighbor of neighbors) {
+			if (isValidPixel(neighbor.row, neighbor.col)) {
+				stack.push(neighbor);
+			}
+		}
+	}
+
+	// Sort path points to create a more natural line
+	if (path.length > 1) {
+		path.sort((a, b) => {
+			// Sort primarily by distance from origin to create a more coherent path
+			const distA = Math.sqrt(a.x * a.x + a.y * a.y);
+			const distB = Math.sqrt(b.x * b.x + b.y * b.y);
+			return distA - distB;
+		});
+	}
+
+	return path;
+}
+
+// Order points to form continuous paths, breaking into segments when points are far apart
+function orderPathPoints(points, maxDistance = 15.0) {
+	if (points.length <= 1) return [points];
+
+	const segments = [];
+	const visited = new Set();
+
+	for (let startIdx = 0; startIdx < points.length; startIdx++) {
+		if (visited.has(startIdx)) continue;
+
+		const segment = [points[startIdx]];
+		visited.add(startIdx);
+		let currentIdx = startIdx;
+
+		while (true) {
+			let nearestIdx = -1;
+			let nearestDist = Infinity;
+
+			// Find nearest unvisited point
+			for (let i = 0; i < points.length; i++) {
+				if (visited.has(i)) continue;
+
+				const dx = points[i].x - points[currentIdx].x;
+				const dy = points[i].y - points[currentIdx].y;
+				const dist = Math.sqrt(dx * dx + dy * dy);
+
+				if (dist < nearestDist) {
+					nearestDist = dist;
+					nearestIdx = i;
+				}
+			}
+
+			// If nearest point is too far, start a new segment
+			if (nearestIdx === -1 || nearestDist > maxDistance) {
+				break;
+			}
+
+			segment.push(points[nearestIdx]);
+			visited.add(nearestIdx);
+			currentIdx = nearestIdx;
+		}
+
+		if (segment.length > 0) {
+			segments.push(segment);
+		}
+	}
+
+	return segments;
+}
+
+// Simplify path using Douglas-Peucker algorithm
+function simplifyPath(points, tolerance = 0.5) {
+	if (points.length <= 2) return points;
+
+	// Find the point with maximum distance
+	let maxDist = 0;
+	let maxIndex = 0;
+	const first = points[0];
+	const last = points[points.length - 1];
+
+	for (let i = 1; i < points.length - 1; i++) {
+		const dist = perpendicularDistance(points[i], first, last);
+		if (dist > maxDist) {
+			maxDist = dist;
+			maxIndex = i;
+		}
+	}
+
+	// If max distance is greater than tolerance, recursively simplify
+	if (maxDist > tolerance) {
+		const left = simplifyPath(points.slice(0, maxIndex + 1), tolerance);
+		const right = simplifyPath(points.slice(maxIndex), tolerance);
+		return left.slice(0, -1).concat(right);
+	} else {
+		return [first, last];
+	}
+}
+
+function perpendicularDistance(point, lineStart, lineEnd) {
+	const dx = lineEnd.x - lineStart.x;
+	const dy = lineEnd.y - lineStart.y;
+	const norm = Math.sqrt(dx * dx + dy * dy);
+
+	if (norm === 0) {
+		const px = point.x - lineStart.x;
+		const py = point.y - lineStart.y;
+		return Math.sqrt(px * px + py * py);
+	}
+
+	const dist = Math.abs(dy * point.x - dx * point.y + lineEnd.x * lineStart.y - lineEnd.y * lineStart.x) / norm;
+	return dist;
+}
+
+// Convert a single segment to smooth SVG path
+function segmentToSmoothPath(processedPoints, smooth, closePathOption) {
+	if (processedPoints.length === 0) return '';
+	if (processedPoints.length === 1) {
+		// Single point - draw a small circle
+		const p = processedPoints[0];
+		return `M ${p.x - 0.3} ${p.y} a 0.3 0.3 0 1 0 0.6 0 a 0.3 0.3 0 1 0 -0.6 0`;
+	}
+
+	// Determine if path should be closed based on proximity of start and end points
+	const first = processedPoints[0];
+	const last = processedPoints[processedPoints.length - 1];
+	const dx = last.x - first.x;
+	const dy = last.y - first.y;
+	const distance = Math.sqrt(dx * dx + dy * dy);
+
+	// Auto-close if start and end are within 30 units of each other
+	const shouldClosePath = closePathOption && (distance < 30 || processedPoints.length < 4);
+
+	if (!smooth || processedPoints.length < 3) {
+		// Simple line path
+		let path = `M ${processedPoints[0].x} ${processedPoints[0].y}`;
+		for (let i = 1; i < processedPoints.length; i++) {
+			path += ` L ${processedPoints[i].x} ${processedPoints[i].y}`;
+		}
+		if (shouldClosePath) {
+			path += ' Z';
+		}
+		return path;
+	}
+
+	// Create smooth path using Catmull-Rom to Bezier conversion
+	let path = `M ${processedPoints[0].x} ${processedPoints[0].y}`;
+
+	if (shouldClosePath) {
+		// Draw curves through all points (closed loop)
+		for (let i = 0; i < processedPoints.length; i++) {
+			const p0 = processedPoints[(i - 1 + processedPoints.length) % processedPoints.length];
+			const p1 = processedPoints[i];
+			const p2 = processedPoints[(i + 1) % processedPoints.length];
+			const p3 = processedPoints[(i + 2) % processedPoints.length];
+
+			// Calculate control points for cubic Bezier curve
+			const cp1x = p1.x + (p2.x - p0.x) / 6;
+			const cp1y = p1.y + (p2.y - p0.y) / 6;
+			const cp2x = p2.x - (p3.x - p1.x) / 6;
+			const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+			path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+		}
+		path += ' Z';
+	} else {
+		// Draw curves through points (open path)
+		for (let i = 0; i < processedPoints.length - 1; i++) {
+			const p0 = i > 0 ? processedPoints[i - 1] : processedPoints[i];
+			const p1 = processedPoints[i];
+			const p2 = processedPoints[i + 1];
+			const p3 = i < processedPoints.length - 2 ? processedPoints[i + 2] : p2;
+
+			// Calculate control points for cubic Bezier curve
+			const cp1x = p1.x + (p2.x - p0.x) / 6;
+			const cp1y = p1.y + (p2.y - p0.y) / 6;
+			const cp2x = p2.x - (p3.x - p1.x) / 6;
+			const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+			path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+		}
+	}
+
+	return path;
+}
+
+// Convert points to smooth SVG path (handles multiple segments)
+function pointsToSmoothPath(points, smooth = true, simplify = true, maxDistance = 15.0) {
+	if (points.length === 0) return '';
+
+	// Order points to create continuous path segments
+	const segments = orderPathPoints(points, maxDistance);
+
+	let allPaths = '';
+
+	// Process each segment
+	segments.forEach(segment => {
+		const processedPoints = simplify ? simplifyPath(segment, 1.5) : segment;
+		// Always enable auto-closing for paths where start and end are close
+		const pathData = segmentToSmoothPath(processedPoints, smooth, true);
+		if (pathData) {
+			allPaths += pathData + ' ';
+		}
+	});
+
+	return allPaths.trim();
+}
+
+// Generate vectorized SVG
+function generateVectorizedSVG(smoothPaths = true, simplifyPaths = true, maxDistance = 15.0) {
+	const grid = createPixelColorGrid();
+	const colors = getUniqueColors(grid);
+	const size = gridSize;
+	const pixelSize = 10;
+	const svgSize = size * pixelSize;
+
+	let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">\n`;
+
+	// Process each color
+	colors.forEach(color => {
+		const paths = findColoredPixelPaths(grid, color);
+
+		paths.forEach(path => {
+			if (path.length > 0) {
+				// Scale points
+				const scaledPoints = path.map(p => ({
+					x: p.x * pixelSize,
+					y: p.y * pixelSize
+				}));
+
+				const pathData = pointsToSmoothPath(scaledPoints, smoothPaths, simplifyPaths, maxDistance);
+
+				// Draw as stroked path instead of filled
+				svg += `  <path d="${pathData}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>\n`;
+			}
+		});
+	});
+
+	svg += '</svg>';
+	return svg;
+}
+
+// Open vectorize modal
+vectorizeBtn.addEventListener('click', () => {
+	generateAndShowVector();
+	vectorizeModal.classList.add('show');
+});
+
+// Generate and display vectorized image
+function generateAndShowVector() {
+	const smoothPaths = smoothPathsCheckbox.checked;
+	const simplifyPaths = simplifyPathsCheckbox.checked;
+	const maxDistance = parseFloat(maxDistanceSlider.value);
+
+	currentVectorizedSVG = generateVectorizedSVG(smoothPaths, simplifyPaths, maxDistance);
+	vectorPreview.innerHTML = currentVectorizedSVG;
+}
+
+// Update max distance display value
+maxDistanceSlider.addEventListener('input', (e) => {
+	maxDistanceValue.textContent = e.target.value;
+});
+
+// Regenerate vector with new options
+regenerateVectorBtn.addEventListener('click', generateAndShowVector);
+
+// Download vectorized SVG
+downloadVectorBtn.addEventListener('click', () => {
+	const blob = new Blob([currentVectorizedSVG], { type: 'image/svg+xml' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = `pixel-art-vectorized-${Date.now()}.svg`;
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	URL.revokeObjectURL(url);
+});
+
+// Close vectorize modal
+function closeVectorizeModalFn() {
+	vectorizeModal.classList.remove('show');
+}
+
+closeVectorizeModal.addEventListener('click', closeVectorizeModalFn);
+closeVectorizeBtn.addEventListener('click', closeVectorizeModalFn);
+
+vectorizeModal.addEventListener('click', (e) => {
+	if (e.target === vectorizeModal) {
+		closeVectorizeModalFn();
+	}
+});
 
 // Tool selection
 function updateToolCursor() {

@@ -3,13 +3,13 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Pixel Art Editor</title>
+		<title>ProblematicPixel</title>
 		<link rel="stylesheet" href="styles.css" />
 	</head>
 	<body>
 		<div class="container">
 			<header>
-				<h1>Pixel Art Editor</h1>
+				<h1>ProblematicPixel</h1>
 				<div class="controls">
 					<div class="grid-size-control">
 						<label for="gridSize">Grid Size:</label>
@@ -20,6 +20,8 @@
 					<button id="loadBtn" class="btn">Load</button>
 					<button id="clearBtn" class="btn">Clear</button>
 					<button id="exportBtn" class="btn">Export PNG</button>
+					<button id="exportSvgBtn" class="btn">Export SVG</button>
+					<button id="vectorizeBtn" class="btn">Vectorize</button>
 				</div>
 			</header>
 			<main>
@@ -74,6 +76,38 @@
 				</div>
 				<div class="modal-body">
 					<div id="savedArtworksList" class="saved-artworks-list"></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Vectorize Modal -->
+		<div id="vectorizeModal" class="modal">
+			<div class="modal-content modal-content-wide">
+				<div class="modal-header">
+					<h2>Vectorize Artwork</h2>
+					<button class="close-btn" id="closeVectorizeModal">&times;</button>
+				</div>
+				<div class="modal-body">
+					<div class="vectorize-options">
+						<label>
+							<input type="checkbox" id="smoothPaths" checked />
+							Smooth paths
+						</label>
+						<label>
+							<input type="checkbox" id="simplifyPaths" checked />
+							Simplify paths
+						</label>
+						<div class="distance-control">
+							<label for="maxDistance">Max distance: <span id="maxDistanceValue">15</span></label>
+							<input type="range" id="maxDistance" min="5" max="50" value="15" step="5" />
+						</div>
+						<button id="regenerateVector" class="btn">Regenerate</button>
+					</div>
+					<div id="vectorPreview" class="vector-preview"></div>
+					<div class="modal-actions">
+						<button id="downloadVectorBtn" class="btn">Download SVG</button>
+						<button id="closeVectorizeBtn" class="btn btn-secondary">Close</button>
+					</div>
 				</div>
 			</div>
 		</div>
