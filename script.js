@@ -7,6 +7,18 @@ const clearBtn = document.getElementById('clearBtn');
 const exportBtn = document.getElementById('exportBtn');
 const brushTool = document.getElementById('brushTool');
 const bucketTool = document.getElementById('bucketTool');
+const saveBtn = document.getElementById('saveBtn');
+const loadBtn = document.getElementById('loadBtn');
+
+// Modal elements
+const saveModal = document.getElementById('saveModal');
+const loadModal = document.getElementById('loadModal');
+const closeSaveModal = document.getElementById('closeSaveModal');
+const closeLoadModal = document.getElementById('closeLoadModal');
+const artworkNameInput = document.getElementById('artworkName');
+const confirmSaveBtn = document.getElementById('confirmSaveBtn');
+const cancelSaveBtn = document.getElementById('cancelSaveBtn');
+const savedArtworksList = document.getElementById('savedArtworksList');
 
 // Color palette organized in groups of 3 analogous colors
 const pixelArtPalette = [
@@ -65,6 +77,9 @@ let pixels = [];
 let currentTool = 'brush'; // 'brush' or 'bucket'
 let undoHistory = [];
 let maxHistorySize = 50;
+
+// LocalStorage key
+const STORAGE_KEY = 'pixelArtworks';
 
 // Initialize color palette
 function initPalette() {
@@ -504,6 +519,242 @@ bucketTool.addEventListener('click', () => {
 	bucketTool.classList.add('active');
 	brushTool.classList.remove('active');
 	updateToolCursor();
+});
+
+// ============== SAVE/LOAD FUNCTIONALITY ==============
+
+// Get all saved artworks from localStorage
+function getSavedArtworks() {
+	const data = localStorage.getItem(STORAGE_KEY);
+	return data ? JSON.parse(data) : [];
+}
+
+// Save artworks to localStorage
+function saveArtworksToStorage(artworks) {
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(artworks));
+}
+
+// Generate preview image as data URL
+function generatePreview() {
+	const size = gridSize;
+	const previewSize = 200; // Preview canvas size
+	const pixelSize = previewSize / size;
+
+	const canvas = document.createElement('canvas');
+	canvas.width = previewSize;
+	canvas.height = previewSize;
+	const ctx = canvas.getContext('2d');
+
+	ctx.imageSmoothingEnabled = false;
+
+	// Draw each pixel
+	pixels.forEach((pixel, index) => {
+		const row = Math.floor(index / size);
+		const col = index % size;
+		const x = col * pixelSize;
+		const y = row * pixelSize;
+
+		const bgColor = pixel.style.backgroundColor || '#ffffff';
+		ctx.fillStyle = bgColor;
+		ctx.fillRect(x, y, pixelSize, pixelSize);
+	});
+
+	return canvas.toDataURL();
+}
+
+// Get current canvas data
+function getCurrentCanvasData() {
+	return {
+		gridSize: gridSize,
+		pixels: pixels.map((pixel) => pixel.style.backgroundColor || '#ffffff')
+	};
+}
+
+// Load canvas data
+function loadCanvasData(data) {
+	// Change grid size if needed
+	if (data.gridSize !== gridSize) {
+		gridSize = data.gridSize;
+		gridSizeSlider.value = gridSize;
+		gridSizeValue.textContent = gridSize;
+		createGrid(gridSize);
+	}
+
+	// Load pixel colors
+	data.pixels.forEach((color, index) => {
+		const pixel = getPixel(index);
+		if (pixel) {
+			pixel.style.backgroundColor = color;
+		}
+	});
+
+	// Reset undo history and save initial state
+	undoHistory = [];
+	saveState();
+}
+
+// Open save modal
+saveBtn.addEventListener('click', () => {
+	artworkNameInput.value = '';
+	saveModal.classList.add('show');
+	artworkNameInput.focus();
+});
+
+// Close save modal
+function closeSaveModalFn() {
+	saveModal.classList.remove('show');
+}
+
+closeSaveModal.addEventListener('click', closeSaveModalFn);
+cancelSaveBtn.addEventListener('click', closeSaveModalFn);
+
+// Save artwork
+confirmSaveBtn.addEventListener('click', () => {
+	const name = artworkNameInput.value.trim();
+	if (!name) {
+		alert('Please enter a name for your artwork');
+		return;
+	}
+
+	const artworks = getSavedArtworks();
+	const artwork = {
+		id: Date.now(),
+		name: name,
+		timestamp: new Date().toISOString(),
+		preview: generatePreview(),
+		data: getCurrentCanvasData()
+	};
+
+	artworks.push(artwork);
+	saveArtworksToStorage(artworks);
+
+	closeSaveModalFn();
+	alert('Artwork saved successfully!');
+});
+
+// Save on Enter key
+artworkNameInput.addEventListener('keypress', (e) => {
+	if (e.key === 'Enter') {
+		confirmSaveBtn.click();
+	}
+});
+
+// Open load modal
+loadBtn.addEventListener('click', () => {
+	renderSavedArtworks();
+	loadModal.classList.add('show');
+});
+
+// Close load modal
+function closeLoadModalFn() {
+	loadModal.classList.remove('show');
+}
+
+closeLoadModal.addEventListener('click', closeLoadModalFn);
+
+// Render saved artworks list
+function renderSavedArtworks() {
+	const artworks = getSavedArtworks();
+	savedArtworksList.innerHTML = '';
+
+	if (artworks.length === 0) {
+		return; // CSS will show "no artworks" message
+	}
+
+	artworks.reverse().forEach((artwork) => {
+		const item = document.createElement('div');
+		item.className = 'artwork-item';
+
+		const preview = document.createElement('img');
+		preview.className = 'artwork-preview';
+		preview.src = artwork.preview;
+		preview.alt = artwork.name;
+
+		const info = document.createElement('div');
+		info.className = 'artwork-info';
+
+		const name = document.createElement('div');
+		name.className = 'artwork-name';
+		name.textContent = artwork.name;
+
+		const meta = document.createElement('div');
+		meta.className = 'artwork-meta';
+		const date = new Date(artwork.timestamp);
+		meta.textContent = `${artwork.data.gridSize}×${artwork.data.gridSize} • ${date.toLocaleDateString()}`;
+
+		const actions = document.createElement('div');
+		actions.className = 'artwork-actions';
+
+		const loadButton = document.createElement('button');
+		loadButton.className = 'btn';
+		loadButton.textContent = 'Load';
+		loadButton.addEventListener('click', (e) => {
+			e.stopPropagation();
+			loadCanvasData(artwork.data);
+			closeLoadModalFn();
+		});
+
+		const deleteButton = document.createElement('button');
+		deleteButton.className = 'btn btn-danger';
+		deleteButton.textContent = 'Delete';
+		deleteButton.addEventListener('click', (e) => {
+			e.stopPropagation();
+			if (confirm(`Delete "${artwork.name}"?`)) {
+				deleteArtwork(artwork.id);
+				renderSavedArtworks();
+			}
+		});
+
+		actions.appendChild(loadButton);
+		actions.appendChild(deleteButton);
+
+		info.appendChild(name);
+		info.appendChild(meta);
+
+		item.appendChild(preview);
+		item.appendChild(info);
+		item.appendChild(actions);
+
+		// Click on item to load
+		item.addEventListener('click', () => {
+			loadCanvasData(artwork.data);
+			closeLoadModalFn();
+		});
+
+		savedArtworksList.appendChild(item);
+	});
+}
+
+// Delete artwork
+function deleteArtwork(id) {
+	const artworks = getSavedArtworks();
+	const filtered = artworks.filter((artwork) => artwork.id !== id);
+	saveArtworksToStorage(filtered);
+}
+
+// Close modals on background click
+saveModal.addEventListener('click', (e) => {
+	if (e.target === saveModal) {
+		closeSaveModalFn();
+	}
+});
+
+loadModal.addEventListener('click', (e) => {
+	if (e.target === loadModal) {
+		closeLoadModalFn();
+	}
+});
+
+// Close modals on Escape key
+document.addEventListener('keydown', (e) => {
+	if (e.key === 'Escape') {
+		if (saveModal.classList.contains('show')) {
+			closeSaveModalFn();
+		}
+		if (loadModal.classList.contains('show')) {
+			closeLoadModalFn();
+		}
+	}
 });
 
 // Initialize

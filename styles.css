@@ -107,6 +107,16 @@ header h1 {
     background: #000000;
 }
 
+.btn-secondary {
+    background: #f5f5f5;
+    color: #000000;
+    border: 1px solid #e5e5e5;
+}
+
+.btn-secondary:hover {
+    background: #e5e5e5;
+}
+
 main {
     padding: 32px;
 }
@@ -263,6 +273,209 @@ main {
     text-align: center;
 }
 
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.2s;
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow: hidden;
+    animation: slideIn 0.2s;
+}
+
+.modal-content-wide {
+    max-width: 900px;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.modal-header h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #666666;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.close-btn:hover {
+    background: #f5f5f5;
+}
+
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    max-height: calc(80vh - 80px);
+}
+
+.modal-body label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #000000;
+}
+
+.modal-body input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    font-family: inherit;
+}
+
+.modal-body input[type="text"]:focus {
+    outline: none;
+    border-color: #000000;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+/* Saved Artworks List */
+.saved-artworks-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.saved-artworks-list:empty::before {
+    content: "No saved artworks yet. Create something and save it!";
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #666666;
+    padding: 40px 20px;
+    font-size: 14px;
+}
+
+.artwork-item {
+    background: #f5f5f5;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.artwork-item:hover {
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.artwork-preview {
+    width: 100%;
+    aspect-ratio: 1;
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+.artwork-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.artwork-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #000000;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.artwork-meta {
+    font-size: 12px;
+    color: #666666;
+}
+
+.artwork-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.artwork-actions button {
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-danger {
+    background: #ef5350;
+    color: #ffffff;
+}
+
+.btn-danger:hover {
+    background: #e53935;
+}
+
 @media (max-width: 768px) {
     header {
         padding: 20px;
@@ -283,5 +496,14 @@ main {
     .pixel {
         width: 12px;
         height: 12px;
+    }
+
+    .saved-artworks-list {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+
+    .modal-content {
+        width: 95%;
+        max-width: none;
     }
 }
