@@ -13,8 +13,14 @@
 				<div class="controls">
 					<div class="grid-size-control">
 						<label for="gridSize">Grid Size:</label>
-						<input type="range" id="gridSize" min="8" max="64" value="32" step="8" />
-						<span id="gridSizeValue">32</span>
+						<input type="range" id="gridSize" min="8" max="64" value="16" step="8" />
+						<span id="gridSizeValue">16</span>
+					</div>
+					<div class="move-controls">
+						<button id="moveUpBtn" class="btn btn-move" title="Move all pixels up">↑</button>
+						<button id="moveDownBtn" class="btn btn-move" title="Move all pixels down">↓</button>
+						<button id="moveLeftBtn" class="btn btn-move" title="Move all pixels left">←</button>
+						<button id="moveRightBtn" class="btn btn-move" title="Move all pixels right">→</button>
 					</div>
 					<button id="saveBtn" class="btn">Save</button>
 					<button id="loadBtn" class="btn">Load</button>

@@ -11,6 +11,10 @@ const brushTool = document.getElementById('brushTool');
 const bucketTool = document.getElementById('bucketTool');
 const saveBtn = document.getElementById('saveBtn');
 const loadBtn = document.getElementById('loadBtn');
+const moveUpBtn = document.getElementById('moveUpBtn');
+const moveDownBtn = document.getElementById('moveDownBtn');
+const moveLeftBtn = document.getElementById('moveLeftBtn');
+const moveRightBtn = document.getElementById('moveRightBtn');
 
 // Modal elements
 const saveModal = document.getElementById('saveModal');
@@ -82,7 +86,7 @@ const pixelArtPalette = [
 ];
 
 let selectedColor = '#000000';
-let gridSize = 32;
+let gridSize = 16;
 let isDrawing = false;
 let currentPixelIndex = 0;
 let pixels = [];
@@ -539,6 +543,57 @@ clearBtn.addEventListener('click', () => {
 	currentPixelIndex = 0;
 	updateCurrentPixel();
 });
+
+// Move all pixels in a direction
+function movePixels(direction) {
+	saveState();
+	const size = gridSize;
+	const colorGrid = [];
+
+	// Store current colors in a 2D array
+	for (let row = 0; row < size; row++) {
+		colorGrid[row] = [];
+		for (let col = 0; col < size; col++) {
+			const index = row * size + col;
+			colorGrid[row][col] = pixels[index].style.backgroundColor || '#ffffff';
+		}
+	}
+
+	// Clear all pixels
+	pixels.forEach((pixel) => {
+		pixel.style.backgroundColor = '#ffffff';
+	});
+
+	// Move pixels based on direction
+	for (let row = 0; row < size; row++) {
+		for (let col = 0; col < size; col++) {
+			let newRow = row;
+			let newCol = col;
+
+			if (direction === 'up') {
+				newRow = row - 1;
+			} else if (direction === 'down') {
+				newRow = row + 1;
+			} else if (direction === 'left') {
+				newCol = col - 1;
+			} else if (direction === 'right') {
+				newCol = col + 1;
+			}
+
+			// Only move if within bounds
+			if (newRow >= 0 && newRow < size && newCol >= 0 && newCol < size) {
+				const newIndex = newRow * size + newCol;
+				pixels[newIndex].style.backgroundColor = colorGrid[row][col];
+			}
+		}
+	}
+}
+
+// Move buttons
+moveUpBtn.addEventListener('click', () => movePixels('up'));
+moveDownBtn.addEventListener('click', () => movePixels('down'));
+moveLeftBtn.addEventListener('click', () => movePixels('left'));
+moveRightBtn.addEventListener('click', () => movePixels('right'));
 
 // Export buttons
 exportBtn.addEventListener('click', exportToPNG);

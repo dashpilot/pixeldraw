@@ -47,6 +47,19 @@ header h1 {
     gap: 8px;
 }
 
+.move-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.btn-move {
+    padding: 8px 12px;
+    min-width: 40px;
+    font-size: 16px;
+    line-height: 1;
+}
+
 .grid-size-control label {
     font-size: 14px;
     color: #666666;
@@ -176,8 +189,8 @@ main {
 
 .palette {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2px 0px;
+    grid-template-columns: repeat(3, 32px);
+    gap: 2px;
     margin-bottom: 16px;
 }
 
