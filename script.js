@@ -2,6 +2,7 @@ const pixelGrid = document.getElementById('pixelGrid');
 const colorPalette = document.getElementById('colorPalette');
 const gridSizeButtons = document.querySelectorAll('.btn-grid-size');
 const clearBtn = document.getElementById('clearBtn');
+const undoBtn = document.getElementById('undoBtn');
 const exportBtn = document.getElementById('exportBtn');
 const exportPngBtn = document.getElementById('exportPngBtn');
 const exportSvgBtn = document.getElementById('exportSvgBtn');
@@ -857,8 +858,17 @@ function exportCurrentCanvasAsJSON() {
 	URL.revokeObjectURL(url);
 }
 
+// Undo button
+undoBtn.addEventListener('click', () => {
+	undo();
+});
+
 // Clear canvas
 clearBtn.addEventListener('click', () => {
+	const confirmed = confirm('Are you sure you want to clear the canvas?');
+	if (!confirmed) {
+		return;
+	}
 	saveState();
 	pixels.forEach((pixel) => {
 		pixel.style.backgroundColor = '#ffffff';

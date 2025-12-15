@@ -77,9 +77,14 @@ header h1 {
     border-color: #000000;
 }
 
-.btn-clear {
-    width: 100%;
+.action-buttons {
+    display: flex;
+    gap: 4px;
     margin-bottom: 24px;
+}
+
+.action-buttons button {
+    flex: 1;
 }
 
 .move-controls {
