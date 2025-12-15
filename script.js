@@ -342,9 +342,11 @@ function createGrid(size) {
 	pixelGrid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
 	pixels = [];
 
-	// Calculate pixel size based on grid size to keep canvas reasonable
-	const maxCanvasSize = 600;
-	const pixelSize = Math.max(8, Math.floor(maxCanvasSize / size));
+	// Use fixed canvas size of 512px (divisible by all grid sizes: 8, 16, 32, 64)
+	// Account for 1px gaps between pixels: total size = (N * pixelSize) + ((N-1) * 1px)
+	// Solving for pixelSize: N * pixelSize + N - 1 = 512, so pixelSize = (513 - N) / N
+	const fixedCanvasSize = 512;
+	const pixelSize = (fixedCanvasSize + 1 - size) / size;
 
 	for (let i = 0; i < size * size; i++) {
 		const pixel = document.createElement('div');
@@ -471,17 +473,104 @@ function updatePreview() {
 	});
 }
 
+// Scale pixel data when changing grid size
+function scalePixelData(oldSize, newSize, oldPixelColors) {
+	const scaleFactor = newSize / oldSize;
+	const newPixelColors = new Array(newSize * newSize).fill('#ffffff');
+
+	if (scaleFactor >= 1) {
+		// Upscaling: each old pixel becomes a block of pixels
+		for (let oldRow = 0; oldRow < oldSize; oldRow++) {
+			for (let oldCol = 0; oldCol < oldSize; oldCol++) {
+				const oldIndex = oldRow * oldSize + oldCol;
+				const color = oldPixelColors[oldIndex];
+
+				// Fill the corresponding block in the new grid
+				for (let dy = 0; dy < scaleFactor; dy++) {
+					for (let dx = 0; dx < scaleFactor; dx++) {
+						const newRow = oldRow * scaleFactor + dy;
+						const newCol = oldCol * scaleFactor + dx;
+						const newIndex = newRow * newSize + newCol;
+						newPixelColors[newIndex] = color;
+					}
+				}
+			}
+		}
+	} else {
+		// Downscaling: sample from blocks using nearest-neighbor
+		const inverseScale = oldSize / newSize;
+		for (let newRow = 0; newRow < newSize; newRow++) {
+			for (let newCol = 0; newCol < newSize; newCol++) {
+				// Sample from the center of the corresponding block in the old grid
+				const oldRow = Math.floor((newRow + 0.5) * inverseScale);
+				const oldCol = Math.floor((newCol + 0.5) * inverseScale);
+				const oldIndex = oldRow * oldSize + oldCol;
+				const newIndex = newRow * newSize + newCol;
+				newPixelColors[newIndex] = oldPixelColors[oldIndex];
+			}
+		}
+	}
+
+	return newPixelColors;
+}
+
 // Grid size buttons
 gridSizeButtons.forEach((button) => {
 	button.addEventListener('click', () => {
 		const newSize = parseInt(button.dataset.size);
+		const oldSize = gridSize;
+
+		// If size hasn't changed, do nothing
+		if (newSize === oldSize) return;
+
+		// Capture current pixel colors
+		const oldPixelColors = pixels.map(
+			(pixel) => pixel.style.backgroundColor || '#ffffff'
+		);
+
+		// Check if canvas has any non-white pixels
+		const hasContent = oldPixelColors.some(
+			(color) => normalizeColor(color) !== '#FFFFFF'
+		);
+
+		// Warn if downscaling with content
+		if (hasContent && newSize < oldSize) {
+			const confirmed = confirm(
+				`Switching to a smaller grid (${oldSize}→${newSize}) will lose detail. Continue?`
+			);
+			if (!confirmed) {
+				return; // User cancelled, don't change grid size
+			}
+			// Save state before downscaling so user can undo
+			saveState();
+		}
+
+		// Scale the pixel data if there's content
+		let scaledColors = null;
+		if (hasContent) {
+			scaledColors = scalePixelData(oldSize, newSize, oldPixelColors);
+		}
+
+		// Update grid size
 		gridSize = newSize;
 
 		// Update active state
 		gridSizeButtons.forEach((btn) => btn.classList.remove('active'));
 		button.classList.add('active');
 
+		// Create new grid
 		createGrid(gridSize);
+
+		// Apply scaled colors if we had content
+		if (scaledColors) {
+			scaledColors.forEach((color, index) => {
+				if (pixels[index]) {
+					pixels[index].style.backgroundColor = color;
+				}
+			});
+			updatePreview();
+		}
+
 		// Refocus grid after recreation
 		setTimeout(() => pixelGrid.focus(), 0);
 	});
