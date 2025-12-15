@@ -496,10 +496,12 @@ main {
     display: flex;
     gap: 8px;
     margin-top: 8px;
+    flex-wrap: wrap;
 }
 
 .artwork-actions button {
     flex: 1;
+    min-width: 60px;
     padding: 6px 12px;
     font-size: 12px;
 }
@@ -614,6 +616,10 @@ main {
 
     .palette-section {
         width: 100%;
+    }
+
+    .preview-section {
+        display: none;
     }
 
     .pixel {

@@ -6,6 +6,7 @@ const gridSizeValue = document.getElementById('gridSizeValue');
 const clearBtn = document.getElementById('clearBtn');
 const exportBtn = document.getElementById('exportBtn');
 const exportSvgBtn = document.getElementById('exportSvgBtn');
+const exportJsonBtn = document.getElementById('exportJsonBtn');
 const vectorizeBtn = document.getElementById('vectorizeBtn');
 const brushTool = document.getElementById('brushTool');
 const bucketTool = document.getElementById('bucketTool');
@@ -15,6 +16,7 @@ const moveUpBtn = document.getElementById('moveUpBtn');
 const moveDownBtn = document.getElementById('moveDownBtn');
 const moveLeftBtn = document.getElementById('moveLeftBtn');
 const moveRightBtn = document.getElementById('moveRightBtn');
+const isoGridBtn = document.getElementById('isoGridBtn');
 const previewCanvas = document.getElementById('previewCanvas');
 
 // Modal elements
@@ -93,6 +95,8 @@ let pixels = [];
 let currentTool = 'brush'; // 'brush' or 'bucket'
 let undoHistory = [];
 let maxHistorySize = 50;
+let isShiftPressed = false;
+let drawStartIndex = -1;
 
 // LocalStorage key
 const STORAGE_KEY = 'pixelArtworks';
@@ -297,6 +301,88 @@ function floodFill(startIndex, fillColor) {
 	updatePreview();
 }
 
+// Draw isometric wireframe tile on canvas
+function drawIsoTile() {
+	saveState();
+
+	// Use light grey color
+	const isoColor = '#C2C3C7';
+
+	// Clear canvas first
+	pixels.forEach((pixel) => {
+		pixel.style.backgroundColor = '#ffffff';
+	});
+
+	// Draw isometric tile wireframe
+	const centerX = Math.floor(gridSize / 2);
+
+	// Isometric tile dimensions - proper 30-degree angles
+	// For true isometric: horizontal distance is 2x the vertical distance
+	const tileWidth = Math.floor(gridSize / 2) - 1; // Extend almost to edges
+	const tileHeight = Math.floor(tileWidth / 2); // Proper 30-degree ratio
+	const verticalHeight = Math.floor(gridSize / 2) - tileHeight - 1;
+
+	// Position to fit properly in grid
+	const topY = Math.floor(gridSize * 0.27);
+	const bottomY = topY + tileHeight + verticalHeight;
+
+	// Helper function to draw a line using Bresenham's algorithm
+	function drawLine(x0, y0, x1, y1) {
+		const dx = Math.abs(x1 - x0);
+		const dy = Math.abs(y1 - y0);
+		const sx = x0 < x1 ? 1 : -1;
+		const sy = y0 < y1 ? 1 : -1;
+		let err = dx - dy;
+
+		while (true) {
+			// Set pixel if within bounds
+			if (x0 >= 0 && x0 < gridSize && y0 >= 0 && y0 < gridSize) {
+				const index = y0 * gridSize + x0;
+				if (pixels[index]) {
+					pixels[index].style.backgroundColor = isoColor;
+				}
+			}
+
+			if (x0 === x1 && y0 === y1) break;
+
+			const e2 = 2 * err;
+			if (e2 > -dy) {
+				err -= dy;
+				x0 += sx;
+			}
+			if (e2 < dx) {
+				err += dx;
+				y0 += sy;
+			}
+		}
+	}
+
+	// Define vertices for isometric tile
+	const topFront = { x: centerX, y: topY };
+	const topLeft = { x: 0, y: topY + tileHeight };
+	const topRight = { x: gridSize - 1, y: topY + tileHeight };
+
+	const bottomFront = { x: centerX, y: bottomY };
+	const bottomLeft = { x: 0, y: bottomY - tileHeight };
+	const bottomRight = { x: gridSize - 1, y: bottomY - tileHeight };
+
+	// Draw top face diamond (left and right edges only)
+	drawLine(topLeft.x, topLeft.y, topFront.x, topFront.y);
+	drawLine(topFront.x, topFront.y, topRight.x, topRight.y);
+
+	// Draw bottom face diamond (left, right, and back edges)
+	drawLine(bottomLeft.x, bottomLeft.y, bottomFront.x, bottomFront.y);
+	drawLine(bottomFront.x, bottomFront.y, bottomRight.x, bottomRight.y);
+	drawLine(bottomLeft.x, bottomLeft.y, bottomRight.x, bottomRight.y); // Back edge
+
+	// Draw three vertical connecting edges (left edge, right edge, and front center)
+	drawLine(topLeft.x, topLeft.y, bottomLeft.x, bottomLeft.y);
+	drawLine(topRight.x, topRight.y, bottomRight.x, bottomRight.y);
+	drawLine(topFront.x, topFront.y, bottomFront.x, bottomFront.y);
+
+	updatePreview();
+}
+
 // Create pixel grid
 function createGrid(size) {
 	pixelGrid.innerHTML = '';
@@ -317,6 +403,7 @@ function createGrid(size) {
 
 		pixel.addEventListener('mousedown', (e) => {
 			e.preventDefault();
+			drawStartIndex = i;
 			currentPixelIndex = i;
 			updateCurrentPixel();
 
@@ -329,12 +416,16 @@ function createGrid(size) {
 
 		pixel.addEventListener('mouseenter', () => {
 			if (isDrawing && currentTool === 'brush') {
-				paintPixel(i, selectedColor, false, false);
+				const constrainedIndex = getConstrainedIndex(i, drawStartIndex);
+				currentPixelIndex = constrainedIndex;
+				updateCurrentPixel();
+				paintPixel(constrainedIndex, selectedColor, false, false);
 			}
 		});
 
 		pixel.addEventListener('touchstart', (e) => {
 			e.preventDefault();
+			drawStartIndex = i;
 			currentPixelIndex = i;
 			updateCurrentPixel();
 
@@ -352,9 +443,10 @@ function createGrid(size) {
 				const element = document.elementFromPoint(touch.clientX, touch.clientY);
 				if (element && element.classList.contains('pixel')) {
 					const index = parseInt(element.dataset.index);
-					currentPixelIndex = index;
+					const constrainedIndex = getConstrainedIndex(index, drawStartIndex);
+					currentPixelIndex = constrainedIndex;
 					updateCurrentPixel();
-					paintPixel(index, selectedColor, false, false);
+					paintPixel(constrainedIndex, selectedColor, false, false);
 				}
 			}
 		});
@@ -412,12 +504,80 @@ gridSizeSlider.addEventListener('input', (e) => {
 document.addEventListener('mouseup', () => {
 	if (isDrawing) {
 		isDrawing = false;
+		drawStartIndex = -1;
+	}
+});
+
+// Constrain drawing to straight or 45-degree lines when Shift is pressed
+function getConstrainedIndex(currentIndex, startIndex) {
+	if (!isShiftPressed || startIndex === -1) {
+		return currentIndex;
+	}
+
+	const startRow = Math.floor(startIndex / gridSize);
+	const startCol = startIndex % gridSize;
+	const currentRow = Math.floor(currentIndex / gridSize);
+	const currentCol = currentIndex % gridSize;
+
+	const deltaRow = currentRow - startRow;
+	const deltaCol = currentCol - startCol;
+
+	// If already at start position, return current
+	if (deltaRow === 0 && deltaCol === 0) {
+		return currentIndex;
+	}
+
+	const absDeltaRow = Math.abs(deltaRow);
+	const absDeltaCol = Math.abs(deltaCol);
+
+	let constrainedRow = currentRow;
+	let constrainedCol = currentCol;
+
+	// Determine which constraint to use based on angle
+	// 0°/180° (horizontal), 90°/270° (vertical), or 45°/135°/225°/315° (diagonal)
+	if (absDeltaCol === 0) {
+		// Perfectly vertical
+		constrainedCol = startCol;
+	} else if (absDeltaRow === 0) {
+		// Perfectly horizontal
+		constrainedRow = startRow;
+	} else {
+		const ratio = absDeltaRow / absDeltaCol;
+
+		if (ratio < 0.5) {
+			// Closer to horizontal
+			constrainedRow = startRow;
+		} else if (ratio > 2) {
+			// Closer to vertical
+			constrainedCol = startCol;
+		} else {
+			// Closer to 45-degree diagonal
+			const minDelta = Math.min(absDeltaRow, absDeltaCol);
+			constrainedRow = startRow + (deltaRow > 0 ? minDelta : -minDelta);
+			constrainedCol = startCol + (deltaCol > 0 ? minDelta : -minDelta);
+		}
+	}
+
+	return constrainedRow * gridSize + constrainedCol;
+}
+
+// Track Shift key state
+document.addEventListener('keydown', (e) => {
+	if (e.key === 'Shift') {
+		isShiftPressed = true;
+	}
+});
+
+document.addEventListener('keyup', (e) => {
+	if (e.key === 'Shift') {
+		isShiftPressed = false;
 	}
 });
 
 document.addEventListener('touchend', () => {
 	if (isDrawing) {
 		isDrawing = false;
+		drawStartIndex = -1;
 	}
 });
 
@@ -531,7 +691,7 @@ function exportToPNG() {
 // Export to SVG
 function exportToSVG() {
 	const size = gridSize;
-	const pixelSize = 10; // Each pixel will be 10x10 units in the SVG
+	const pixelSize = 20; // Each pixel will be 20x20 units in the SVG (2x larger)
 	const svgSize = size * pixelSize;
 
 	// Create SVG header
@@ -561,6 +721,45 @@ function exportToSVG() {
 	const a = document.createElement('a');
 	a.href = url;
 	a.download = `pixel-art-${Date.now()}.svg`;
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	URL.revokeObjectURL(url);
+}
+
+// Export current canvas as JSON
+function exportCurrentCanvasAsJSON() {
+	const exportData = {
+		name: 'Current Canvas',
+		gridSize: gridSize,
+		timestamp: new Date().toISOString(),
+		pixels: []
+	};
+
+	// Convert pixel array to coordinate-based format
+	pixels.forEach((pixel, index) => {
+		const color = pixel.style.backgroundColor || '#ffffff';
+		const normalizedColor = normalizeColor(color);
+
+		// Only export non-white pixels
+		if (normalizedColor !== '#FFFFFF') {
+			const row = Math.floor(index / gridSize);
+			const col = index % gridSize;
+			exportData.pixels.push({
+				x: col,
+				y: row,
+				color: normalizedColor
+			});
+		}
+	});
+
+	// Create and download the JSON file
+	const jsonString = JSON.stringify(exportData, null, 2);
+	const blob = new Blob([jsonString], { type: 'application/json' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = `pixel-art-${Date.now()}.json`;
 	document.body.appendChild(a);
 	a.click();
 	document.body.removeChild(a);
@@ -630,9 +829,15 @@ moveDownBtn.addEventListener('click', () => movePixels('down'));
 moveLeftBtn.addEventListener('click', () => movePixels('left'));
 moveRightBtn.addEventListener('click', () => movePixels('right'));
 
+// Isometric tile button
+isoGridBtn.addEventListener('click', () => {
+	drawIsoTile();
+});
+
 // Export buttons
 exportBtn.addEventListener('click', exportToPNG);
 exportSvgBtn.addEventListener('click', exportToSVG);
+exportJsonBtn.addEventListener('click', exportCurrentCanvasAsJSON);
 
 // ============== VECTORIZATION FUNCTIONALITY ==============
 
@@ -1242,6 +1447,14 @@ function renderSavedArtworks() {
 			closeLoadModalFn();
 		});
 
+		const exportJsonButton = document.createElement('button');
+		exportJsonButton.className = 'btn btn-secondary';
+		exportJsonButton.textContent = 'Export JSON';
+		exportJsonButton.addEventListener('click', (e) => {
+			e.stopPropagation();
+			exportArtworkAsJSON(artwork);
+		});
+
 		const deleteButton = document.createElement('button');
 		deleteButton.className = 'btn btn-danger';
 		deleteButton.textContent = 'Delete';
@@ -1254,6 +1467,7 @@ function renderSavedArtworks() {
 		});
 
 		actions.appendChild(loadButton);
+		actions.appendChild(exportJsonButton);
 		actions.appendChild(deleteButton);
 
 		info.appendChild(name);
@@ -1271,6 +1485,44 @@ function renderSavedArtworks() {
 
 		savedArtworksList.appendChild(item);
 	});
+}
+
+// Export artwork as JSON
+function exportArtworkAsJSON(artwork) {
+	// Create a clean export object with pixel coordinates and colors
+	const exportData = {
+		name: artwork.name,
+		gridSize: artwork.data.gridSize,
+		timestamp: artwork.timestamp,
+		pixels: []
+	};
+
+	// Convert pixel array to coordinate-based format
+	artwork.data.pixels.forEach((color, index) => {
+		// Only export non-white pixels
+		const normalizedColor = normalizeColor(color);
+		if (normalizedColor !== '#FFFFFF') {
+			const row = Math.floor(index / artwork.data.gridSize);
+			const col = index % artwork.data.gridSize;
+			exportData.pixels.push({
+				x: col,
+				y: row,
+				color: normalizedColor
+			});
+		}
+	});
+
+	// Create and download the JSON file
+	const jsonString = JSON.stringify(exportData, null, 2);
+	const blob = new Blob([jsonString], { type: 'application/json' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = `${artwork.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${Date.now()}.json`;
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	URL.revokeObjectURL(url);
 }
 
 // Delete artwork
