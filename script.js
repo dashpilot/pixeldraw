@@ -1,30 +1,34 @@
 const pixelGrid = document.getElementById('pixelGrid');
 const colorPalette = document.getElementById('colorPalette');
-const selectedColorDisplay = document.getElementById('selectedColor');
-const gridSizeSlider = document.getElementById('gridSize');
-const gridSizeValue = document.getElementById('gridSizeValue');
+const gridSizeButtons = document.querySelectorAll('.btn-grid-size');
 const clearBtn = document.getElementById('clearBtn');
 const exportBtn = document.getElementById('exportBtn');
+const exportPngBtn = document.getElementById('exportPngBtn');
 const exportSvgBtn = document.getElementById('exportSvgBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
 const vectorizeBtn = document.getElementById('vectorizeBtn');
 const brushTool = document.getElementById('brushTool');
+const eraserTool = document.getElementById('eraserTool');
 const bucketTool = document.getElementById('bucketTool');
+const eraserSizeControl = document.getElementById('eraserSizeControl');
+const eraserSizeSlider = document.getElementById('eraserSize');
+const eraserSizeValue = document.getElementById('eraserSizeValue');
 const saveBtn = document.getElementById('saveBtn');
 const loadBtn = document.getElementById('loadBtn');
 const moveUpBtn = document.getElementById('moveUpBtn');
 const moveDownBtn = document.getElementById('moveDownBtn');
 const moveLeftBtn = document.getElementById('moveLeftBtn');
 const moveRightBtn = document.getElementById('moveRightBtn');
-const isoGridBtn = document.getElementById('isoGridBtn');
 const previewCanvas = document.getElementById('previewCanvas');
 
 // Modal elements
 const saveModal = document.getElementById('saveModal');
 const loadModal = document.getElementById('loadModal');
+const exportModal = document.getElementById('exportModal');
 const vectorizeModal = document.getElementById('vectorizeModal');
 const closeSaveModal = document.getElementById('closeSaveModal');
 const closeLoadModal = document.getElementById('closeLoadModal');
+const closeExportModal = document.getElementById('closeExportModal');
 const closeVectorizeModal = document.getElementById('closeVectorizeModal');
 const closeVectorizeBtn = document.getElementById('closeVectorizeBtn');
 const artworkNameInput = document.getElementById('artworkName');
@@ -92,7 +96,8 @@ let gridSize = 16;
 let isDrawing = false;
 let currentPixelIndex = 0;
 let pixels = [];
-let currentTool = 'brush'; // 'brush' or 'bucket'
+let currentTool = 'brush'; // 'brush', 'eraser', or 'bucket'
+let eraserSize = 2;
 let undoHistory = [];
 let maxHistorySize = 50;
 let isShiftPressed = false;
@@ -120,7 +125,6 @@ function initPalette() {
 // Select a color
 function selectColor(color, swatchElement) {
 	selectedColor = color;
-	selectedColorDisplay.style.backgroundColor = color;
 
 	// Update selected state
 	document.querySelectorAll('.color-swatch').forEach((swatch) => {
@@ -152,6 +156,14 @@ function updateCurrentPixel() {
 			pixel.classList.remove('current');
 		}
 	});
+}
+
+// Clear current pixel highlight
+function clearCurrentPixel() {
+	pixels.forEach((pixel) => {
+		pixel.classList.remove('current');
+	});
+	currentPixelIndex = -1;
 }
 
 // Paint pixel (with toggle/delete functionality)
@@ -301,85 +313,26 @@ function floodFill(startIndex, fillColor) {
 	updatePreview();
 }
 
-// Draw isometric wireframe tile on canvas
-function drawIsoTile() {
-	saveState();
+// Eraser function - erases multiple pixels at once
+function erasePixels(centerIndex) {
+	const centerRow = Math.floor(centerIndex / gridSize);
+	const centerCol = centerIndex % gridSize;
+	const radius = Math.floor(eraserSize / 2);
 
-	// Use light grey color
-	const isoColor = '#C2C3C7';
+	for (let offsetRow = -radius; offsetRow <= radius; offsetRow++) {
+		for (let offsetCol = -radius; offsetCol <= radius; offsetCol++) {
+			const row = centerRow + offsetRow;
+			const col = centerCol + offsetCol;
 
-	// Clear canvas first
-	pixels.forEach((pixel) => {
-		pixel.style.backgroundColor = '#ffffff';
-	});
-
-	// Draw isometric tile wireframe
-	const centerX = Math.floor(gridSize / 2);
-
-	// Isometric tile dimensions - proper 30-degree angles
-	// For true isometric: horizontal distance is 2x the vertical distance
-	const tileWidth = Math.floor(gridSize / 2) - 1; // Extend almost to edges
-	const tileHeight = Math.floor(tileWidth / 2); // Proper 30-degree ratio
-	const verticalHeight = Math.floor(gridSize / 2) - tileHeight - 1;
-
-	// Position to fit properly in grid
-	const topY = Math.floor(gridSize * 0.27);
-	const bottomY = topY + tileHeight + verticalHeight;
-
-	// Helper function to draw a line using Bresenham's algorithm
-	function drawLine(x0, y0, x1, y1) {
-		const dx = Math.abs(x1 - x0);
-		const dy = Math.abs(y1 - y0);
-		const sx = x0 < x1 ? 1 : -1;
-		const sy = y0 < y1 ? 1 : -1;
-		let err = dx - dy;
-
-		while (true) {
-			// Set pixel if within bounds
-			if (x0 >= 0 && x0 < gridSize && y0 >= 0 && y0 < gridSize) {
-				const index = y0 * gridSize + x0;
+			// Check if within bounds
+			if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
+				const index = row * gridSize + col;
 				if (pixels[index]) {
-					pixels[index].style.backgroundColor = isoColor;
+					pixels[index].style.backgroundColor = '#ffffff';
 				}
-			}
-
-			if (x0 === x1 && y0 === y1) break;
-
-			const e2 = 2 * err;
-			if (e2 > -dy) {
-				err -= dy;
-				x0 += sx;
-			}
-			if (e2 < dx) {
-				err += dx;
-				y0 += sy;
 			}
 		}
 	}
-
-	// Define vertices for isometric tile
-	const topFront = { x: centerX, y: topY };
-	const topLeft = { x: 0, y: topY + tileHeight };
-	const topRight = { x: gridSize - 1, y: topY + tileHeight };
-
-	const bottomFront = { x: centerX, y: bottomY };
-	const bottomLeft = { x: 0, y: bottomY - tileHeight };
-	const bottomRight = { x: gridSize - 1, y: bottomY - tileHeight };
-
-	// Draw top face diamond (left and right edges only)
-	drawLine(topLeft.x, topLeft.y, topFront.x, topFront.y);
-	drawLine(topFront.x, topFront.y, topRight.x, topRight.y);
-
-	// Draw bottom face diamond (left, right, and back edges)
-	drawLine(bottomLeft.x, bottomLeft.y, bottomFront.x, bottomFront.y);
-	drawLine(bottomFront.x, bottomFront.y, bottomRight.x, bottomRight.y);
-	drawLine(bottomLeft.x, bottomLeft.y, bottomRight.x, bottomRight.y); // Back edge
-
-	// Draw three vertical connecting edges (left edge, right edge, and front center)
-	drawLine(topLeft.x, topLeft.y, bottomLeft.x, bottomLeft.y);
-	drawLine(topRight.x, topRight.y, bottomRight.x, bottomRight.y);
-	drawLine(topFront.x, topFront.y, bottomFront.x, bottomFront.y);
-
 	updatePreview();
 }
 
@@ -404,49 +357,71 @@ function createGrid(size) {
 		pixel.addEventListener('mousedown', (e) => {
 			e.preventDefault();
 			drawStartIndex = i;
-			currentPixelIndex = i;
-			updateCurrentPixel();
 
 			if (currentTool === 'bucket') {
+				currentPixelIndex = i;
+				updateCurrentPixel();
 				floodFill(i, selectedColor);
+			} else if (currentTool === 'eraser') {
+				clearCurrentPixel();
+				saveState();
+				isDrawing = true;
+				erasePixels(i);
 			} else {
+				currentPixelIndex = i;
+				updateCurrentPixel();
 				paintPixel(i, selectedColor, true, true);
 			}
 		});
 
 		pixel.addEventListener('mouseenter', () => {
-			if (isDrawing && currentTool === 'brush') {
-				const constrainedIndex = getConstrainedIndex(i, drawStartIndex);
-				currentPixelIndex = constrainedIndex;
-				updateCurrentPixel();
-				paintPixel(constrainedIndex, selectedColor, false, false);
+			if (isDrawing) {
+				if (currentTool === 'brush') {
+					const constrainedIndex = getConstrainedIndex(i, drawStartIndex);
+					currentPixelIndex = constrainedIndex;
+					updateCurrentPixel();
+					paintPixel(constrainedIndex, selectedColor, false, false);
+				} else if (currentTool === 'eraser') {
+					erasePixels(i);
+				}
 			}
 		});
 
 		pixel.addEventListener('touchstart', (e) => {
 			e.preventDefault();
 			drawStartIndex = i;
-			currentPixelIndex = i;
-			updateCurrentPixel();
 
 			if (currentTool === 'bucket') {
+				currentPixelIndex = i;
+				updateCurrentPixel();
 				floodFill(i, selectedColor);
+			} else if (currentTool === 'eraser') {
+				clearCurrentPixel();
+				saveState();
+				isDrawing = true;
+				erasePixels(i);
 			} else {
+				currentPixelIndex = i;
+				updateCurrentPixel();
 				paintPixel(i, selectedColor, true, true);
 			}
 		});
 
 		pixel.addEventListener('touchmove', (e) => {
 			e.preventDefault();
-			if (isDrawing && currentTool === 'brush') {
+			if (isDrawing) {
 				const touch = e.touches[0];
 				const element = document.elementFromPoint(touch.clientX, touch.clientY);
 				if (element && element.classList.contains('pixel')) {
 					const index = parseInt(element.dataset.index);
-					const constrainedIndex = getConstrainedIndex(index, drawStartIndex);
-					currentPixelIndex = constrainedIndex;
-					updateCurrentPixel();
-					paintPixel(constrainedIndex, selectedColor, false, false);
+					if (currentTool === 'brush') {
+						const constrainedIndex = getConstrainedIndex(index, drawStartIndex);
+						currentPixelIndex = constrainedIndex;
+						updateCurrentPixel();
+						paintPixel(constrainedIndex, selectedColor, false, false);
+					} else if (currentTool === 'eraser') {
+						erasePixels(index);
+					}
 				}
 			}
 		});
@@ -491,13 +466,27 @@ function updatePreview() {
 	});
 }
 
-// Grid size slider
-gridSizeSlider.addEventListener('input', (e) => {
-	gridSize = parseInt(e.target.value);
-	gridSizeValue.textContent = gridSize;
-	createGrid(gridSize);
-	// Refocus grid after recreation
-	setTimeout(() => pixelGrid.focus(), 0);
+// Grid size buttons
+gridSizeButtons.forEach((button) => {
+	button.addEventListener('click', () => {
+		const newSize = parseInt(button.dataset.size);
+		gridSize = newSize;
+
+		// Update active state
+		gridSizeButtons.forEach((btn) => btn.classList.remove('active'));
+		button.classList.add('active');
+
+		createGrid(gridSize);
+		// Refocus grid after recreation
+		setTimeout(() => pixelGrid.focus(), 0);
+	});
+});
+
+// Set initial active state for grid size 16
+gridSizeButtons.forEach((button) => {
+	if (parseInt(button.dataset.size) === 16) {
+		button.classList.add('active');
+	}
 });
 
 // Stop drawing when mouse is released
@@ -505,6 +494,14 @@ document.addEventListener('mouseup', () => {
 	if (isDrawing) {
 		isDrawing = false;
 		drawStartIndex = -1;
+	}
+});
+
+// Clear current pixel highlight when clicking outside the canvas
+document.addEventListener('mousedown', (e) => {
+	const clickedInsideGrid = pixelGrid.contains(e.target);
+	if (!clickedInsideGrid) {
+		clearCurrentPixel();
 	}
 });
 
@@ -829,15 +826,26 @@ moveDownBtn.addEventListener('click', () => movePixels('down'));
 moveLeftBtn.addEventListener('click', () => movePixels('left'));
 moveRightBtn.addEventListener('click', () => movePixels('right'));
 
-// Isometric tile button
-isoGridBtn.addEventListener('click', () => {
-	drawIsoTile();
+// Export button - open modal
+exportBtn.addEventListener('click', () => {
+	exportModal.classList.add('show');
 });
 
-// Export buttons
-exportBtn.addEventListener('click', exportToPNG);
-exportSvgBtn.addEventListener('click', exportToSVG);
-exportJsonBtn.addEventListener('click', exportCurrentCanvasAsJSON);
+// Export modal buttons
+exportPngBtn.addEventListener('click', () => {
+	exportToPNG();
+	exportModal.classList.remove('show');
+});
+
+exportSvgBtn.addEventListener('click', () => {
+	exportToSVG();
+	exportModal.classList.remove('show');
+});
+
+exportJsonBtn.addEventListener('click', () => {
+	exportCurrentCanvasAsJSON();
+	exportModal.classList.remove('show');
+});
 
 // ============== VECTORIZATION FUNCTIONALITY ==============
 
@@ -971,7 +979,7 @@ function tracePath(grid, targetColor, startRow, startCol, visited) {
 }
 
 // Order points to form continuous paths, breaking into segments when points are far apart
-function orderPathPoints(points, maxDistance = 45.0) {
+function orderPathPoints(points, maxDistance = 30.0) {
 	if (points.length <= 1) return [points];
 
 	const segments = [];
@@ -1138,7 +1146,7 @@ function segmentToSmoothPath(processedPoints, smooth, closePathOption) {
 }
 
 // Convert points to smooth SVG path (handles multiple segments)
-function pointsToSmoothPath(points, smooth = true, simplify = true, maxDistance = 45.0) {
+function pointsToSmoothPath(points, smooth = true, simplify = true, maxDistance = 30.0) {
 	if (points.length === 0) return '';
 
 	// Order points to create continuous path segments
@@ -1160,11 +1168,11 @@ function pointsToSmoothPath(points, smooth = true, simplify = true, maxDistance 
 }
 
 // Generate vectorized SVG
-function generateVectorizedSVG(smoothPaths = true, simplifyPaths = true, maxDistance = 45.0) {
+function generateVectorizedSVG(smoothPaths = true, simplifyPaths = true, maxDistance = 30.0) {
 	const grid = createPixelColorGrid();
 	const colors = getUniqueColors(grid);
 	const size = gridSize;
-	const pixelSize = 30;
+	const pixelSize = 20;
 	const svgSize = size * pixelSize;
 
 	let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">\n`;
@@ -1195,6 +1203,7 @@ function generateVectorizedSVG(smoothPaths = true, simplifyPaths = true, maxDist
 
 // Open vectorize modal
 vectorizeBtn.addEventListener('click', () => {
+	exportModal.classList.remove('show');
 	generateAndShowVector();
 	vectorizeModal.classList.add('show');
 });
@@ -1251,6 +1260,11 @@ function updateToolCursor() {
 		pixels.forEach((pixel) => {
 			pixel.style.cursor = 'grab';
 		});
+	} else if (currentTool === 'eraser') {
+		pixelGrid.style.cursor = 'crosshair';
+		pixels.forEach((pixel) => {
+			pixel.style.cursor = 'crosshair';
+		});
 	} else {
 		pixelGrid.style.cursor = 'crosshair';
 		pixels.forEach((pixel) => {
@@ -1262,7 +1276,18 @@ function updateToolCursor() {
 brushTool.addEventListener('click', () => {
 	currentTool = 'brush';
 	brushTool.classList.add('active');
+	eraserTool.classList.remove('active');
 	bucketTool.classList.remove('active');
+	eraserSizeControl.style.display = 'none';
+	updateToolCursor();
+});
+
+eraserTool.addEventListener('click', () => {
+	currentTool = 'eraser';
+	eraserTool.classList.add('active');
+	brushTool.classList.remove('active');
+	bucketTool.classList.remove('active');
+	eraserSizeControl.style.display = 'block';
 	updateToolCursor();
 });
 
@@ -1270,7 +1295,15 @@ bucketTool.addEventListener('click', () => {
 	currentTool = 'bucket';
 	bucketTool.classList.add('active');
 	brushTool.classList.remove('active');
+	eraserTool.classList.remove('active');
+	eraserSizeControl.style.display = 'none';
 	updateToolCursor();
+});
+
+// Eraser size slider
+eraserSizeSlider.addEventListener('input', (e) => {
+	eraserSize = parseInt(e.target.value);
+	eraserSizeValue.textContent = eraserSize;
 });
 
 // ============== SAVE/LOAD FUNCTIONALITY ==============
@@ -1327,8 +1360,16 @@ function loadCanvasData(data) {
 	// Change grid size if needed
 	if (data.gridSize !== gridSize) {
 		gridSize = data.gridSize;
-		gridSizeSlider.value = gridSize;
-		gridSizeValue.textContent = gridSize;
+
+		// Update active state on grid size buttons
+		gridSizeButtons.forEach((button) => {
+			if (parseInt(button.dataset.size) === gridSize) {
+				button.classList.add('active');
+			} else {
+				button.classList.remove('active');
+			}
+		});
+
 		createGrid(gridSize);
 	}
 
@@ -1531,6 +1572,19 @@ function deleteArtwork(id) {
 	const filtered = artworks.filter((artwork) => artwork.id !== id);
 	saveArtworksToStorage(filtered);
 }
+
+// Close export modal
+function closeExportModalFn() {
+	exportModal.classList.remove('show');
+}
+
+closeExportModal.addEventListener('click', closeExportModalFn);
+
+exportModal.addEventListener('click', (e) => {
+	if (e.target === exportModal) {
+		closeExportModalFn();
+	}
+});
 
 // Close modals on background click
 saveModal.addEventListener('click', (e) => {
