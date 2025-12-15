@@ -451,18 +451,23 @@ function updatePreview() {
 	ctx.fillStyle = '#ffffff';
 	ctx.fillRect(0, 0, canvasSize, canvasSize);
 
-	// Draw each pixel
+	// Disable image smoothing to prevent anti-aliasing
+	ctx.imageSmoothingEnabled = false;
+
+	// Draw each pixel with proper alignment to eliminate gaps
 	pixels.forEach((pixel, index) => {
 		const row = Math.floor(index / gridSize);
 		const col = index % gridSize;
-		const x = col * pixelSize;
-		const y = row * pixelSize;
+		const x = Math.round(col * pixelSize);
+		const y = Math.round(row * pixelSize);
+		const w = Math.round((col + 1) * pixelSize) - x;
+		const h = Math.round((row + 1) * pixelSize) - y;
 
 		const color = pixel.style.backgroundColor || '#ffffff';
 		const normalizedColor = normalizeColor(color);
 
 		ctx.fillStyle = normalizedColor;
-		ctx.fillRect(x, y, pixelSize, pixelSize);
+		ctx.fillRect(x, y, w, h);
 	});
 }
 
